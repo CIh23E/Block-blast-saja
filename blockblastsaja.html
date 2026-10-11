@@ -1,0 +1,1031 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#2E3F5C">
+<title>Block Blast</title>
+<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; -webkit-touch-callout:none; user-select:none; }
+  html, body { width:100%; height:100%; overflow:hidden; position:fixed; overscroll-behavior:none; touch-action:manipulation; }
+  body { font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background:#2E3F5C; color:#fff; -webkit-font-smoothing:antialiased; }
+  .hidden { display:none !important; }
+
+  #lobby {
+    position:fixed; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    padding: max(16px, env(safe-area-inset-top)) 24px max(16px, env(safe-area-inset-bottom));
+    background: linear-gradient(180deg, #2E3F5C 0%, #354A6B 50%, #3D5375 100%);
+    overflow-y:auto;
+  }
+  .logo-container { text-align:center; margin-bottom: 20px; padding-top: 30px; position:relative; }
+  .logo-block { display:flex; justify-content:center; gap:2px; font-family:'Arial Black', sans-serif; font-size:44px; font-weight:900; letter-spacing:-2px; line-height:1; }
+  .logo-block .l-b { color:#F5A623; text-shadow:0 3px 0 #C77A0F, 0 6px 0 #9C5D08, 0 8px 12px rgba(0,0,0,.4); transform:rotate(-4deg) translateY(2px); }
+  .logo-block .l-l { color:#4A9FE8; text-shadow:0 3px 0 #2E75B6, 0 6px 0 #1E5990, 0 8px 12px rgba(0,0,0,.4); transform:rotate(-2deg) translateY(4px); }
+  .l-o-wrap { position:relative; display:inline-block; }
+  .logo-block .l-o { color:#EC3B3B; text-shadow:0 3px 0 #B52424, 0 6px 0 #8B1919, 0 8px 12px rgba(0,0,0,.4); display:block; transform:rotate(-2deg); }
+  .crown { position:absolute; top:-30px; left:50%; transform:translateX(-50%) rotate(-6deg); font-size:32px; filter:drop-shadow(0 4px 4px rgba(0,0,0,.4)); animation:crownBounce 2.5s ease-in-out infinite; }
+  @keyframes crownBounce { 0%,100%{ transform:translateX(-50%) rotate(-6deg) translateY(0); } 50%{ transform:translateX(-50%) rotate(-6deg) translateY(-3px); } }
+  .logo-block .l-c { color:#F5CB3B; text-shadow:0 3px 0 #C7A00F, 0 6px 0 #9C7B08, 0 8px 12px rgba(0,0,0,.4); transform:rotate(2deg) translateY(2px); }
+  .logo-block .l-k { color:#B44AD9; text-shadow:0 3px 0 #8A2FAB, 0 6px 0 #6B1E87, 0 8px 12px rgba(0,0,0,.4); transform:rotate(3deg) translateY(4px); }
+  .logo-blast { font-family:'Arial Black', sans-serif; font-size:44px; font-weight:900; letter-spacing:2px; margin-top:-8px; color:#4AC9F0; text-shadow:0 3px 0 #2A9CC4, 0 6px 0 #1A7A9E, 0 8px 14px rgba(0,0,0,.45); transform:rotate(-1deg); }
+  .logo-sub { font-family:'Arial Black', sans-serif; font-size:10px; font-weight:900; letter-spacing:3px; color:#6FB8E8; margin-top:6px; text-transform:uppercase; text-shadow:0 2px 0 rgba(0,0,0,.3); }
+
+  .player-box { width:100%; max-width:300px; background: rgba(74,201,240,.08); border: 2px solid rgba(74,201,240,.3); border-radius: 16px; padding: 12px 14px; margin-bottom: 14px; display:flex; align-items:center; gap:10px; }
+  .player-box .avatar { width: 38px; height: 38px; border-radius: 50%; background: linear-gradient(135deg,#7c3aed,#06b6d4); display:flex; align-items:center; justify-content:center; font-size: 20px; flex-shrink:0; box-shadow: 0 0 14px rgba(74,201,240,.5); }
+  .player-box .info { flex:1; min-width:0; }
+  .player-box .info .lbl { font-size:9px; letter-spacing:2px; color:#6FB8E8; font-weight:800; margin-bottom:2px; }
+  .player-box .info .nm { font-size:15px; font-weight:900; color:#fff; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .player-box .edit-btn { background: rgba(74,201,240,.2); border: 1px solid rgba(74,201,240,.4); color: #6FB8E8; font-size:11px; font-weight:800; padding: 6px 10px; border-radius: 8px; letter-spacing: 1px; font-family:inherit; touch-action:manipulation; }
+  .player-box .edit-btn:active { background: rgba(74,201,240,.4); }
+
+  .name-form { width:100%; max-width:300px; background: rgba(255,255,255,.05); border: 2px solid rgba(74,201,240,.3); border-radius: 16px; padding: 14px; margin-bottom: 14px; }
+  .name-form .label { font-size:10px; letter-spacing:2px; color:#6FB8E8; font-weight:800; margin-bottom:8px; text-align:center; }
+  .name-form input { width:100%; padding: 11px 14px; font-size: 15px; font-weight: 800; background:#1E2A5A; border:2px solid #3566D6; border-radius: 11px; color:#fff; outline:none; text-align:center; margin-bottom:8px; }
+  .name-form input::placeholder { color:#4A5A7A; font-weight:600; }
+  .name-form input:focus { border-color:#4AC9F0; box-shadow: 0 0 14px rgba(74,201,240,.4); }
+  .name-form button { width:100%; padding: 11px; background: linear-gradient(180deg,#20C9A5,#10AC84); border: none; border-radius: 11px; font-size: 13px; font-weight: 900; font-family:inherit; color: #fff; letter-spacing: 1.5px; box-shadow: inset 0 2px 0 rgba(255,255,255,.3), inset 0 -3px 0 rgba(0,0,0,.2), 0 3px 0 rgba(0,0,0,.25); touch-action: manipulation; }
+  .name-form button:active { transform: translateY(3px); box-shadow: inset 0 2px 0 rgba(255,255,255,.3), inset 0 -3px 0 rgba(0,0,0,.2); }
+
+  .lobby-best { padding:8px 18px; background:rgba(255,215,42,.12); border:2px solid rgba(255,215,42,.35); border-radius:12px; font-size:13px; font-weight:800; color:#FFD32A; letter-spacing:1.5px; display:flex; align-items:center; gap:8px; margin-bottom:14px; }
+  .lobby-best .val { font-size:18px; }
+
+  .menu-btn { width:100%; max-width:300px; padding:14px 20px; margin-bottom:10px; border:none; border-radius:16px; font-size:18px; font-weight:900; font-family:inherit; color:#fff; display:flex; align-items:center; justify-content:center; gap:12px; position:relative; letter-spacing:.5px; text-shadow:0 2px 0 rgba(0,0,0,.2); box-shadow: inset 0 2px 0 rgba(255,255,255,.35), inset 0 -4px 0 rgba(0,0,0,.18), 0 5px 0 rgba(0,0,0,.25), 0 8px 16px rgba(0,0,0,.3); transition:transform .1s, box-shadow .1s; overflow:hidden; touch-action:manipulation; }
+  .menu-btn::before { content:''; position:absolute; top:0; left:0; right:0; height:45%; background:linear-gradient(180deg, rgba(255,255,255,.28), rgba(255,255,255,0)); border-radius:16px 16px 50% 50%; pointer-events:none; }
+  .menu-btn:active { transform:translateY(4px); box-shadow: inset 0 2px 0 rgba(255,255,255,.35), inset 0 -4px 0 rgba(0,0,0,.18), 0 1px 0 rgba(0,0,0,.25); }
+  .btn-adventure { background:linear-gradient(180deg,#F5B042,#E89A28); }
+  .btn-classic   { background:linear-gradient(180deg,#20C9A5,#10AC84); }
+  .btn-multi     { background:linear-gradient(180deg,#5B8DEF,#3566D6); }
+  .btn-rank      { background:linear-gradient(180deg,#F5CB3B,#E0A800); color:#5C3D00; text-shadow:0 2px 0 rgba(255,255,255,.2); }
+  .menu-btn i { font-style:normal; font-size:22px; filter:drop-shadow(0 2px 0 rgba(0,0,0,.2)); }
+
+  .screen { position:fixed; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; padding: max(20px, env(safe-area-inset-top)) 24px max(20px, env(safe-area-inset-bottom)); background: linear-gradient(180deg, #2E3F5C 0%, #354A6B 100%); z-index:100; overflow-y:auto; }
+  .screen h2 { font-family:'Arial Black', sans-serif; font-size:24px; letter-spacing:2px; color:#4AC9F0; text-shadow:0 3px 0 #1A7A9E; margin-bottom:6px; text-align:center; }
+  .screen p { font-size:13px; color:#B8C5DA; margin-bottom:24px; text-align:center; max-width:300px; line-height:1.5; }
+  .room-code-box { background:#1E2A5A; border:3px solid #4AC9F0; border-radius:20px; padding:20px 36px; margin-bottom:20px; text-align:center; box-shadow: 0 0 30px rgba(74,201,240,.4); }
+  .room-code-box .label { font-size:11px; letter-spacing:3px; color:#6FB8E8; margin-bottom:8px; font-weight:800; }
+  .room-code-box .code { font-family:'Arial Black', sans-serif; font-size:40px; letter-spacing:8px; color:#fff; text-shadow:0 0 20px rgba(74,201,240,.8); }
+  .spinner { width:40px; height:40px; border:4px solid rgba(74,201,240,.2); border-top-color:#4AC9F0; border-radius:50%; animation:spin .9s linear infinite; margin:14px auto; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .code-input { width:100%; max-width:280px; padding:16px; font-family:'Arial Black', sans-serif; font-size:32px; text-align:center; letter-spacing:8px; text-transform:uppercase; background:#1E2A5A; border:3px solid #3566D6; border-radius:16px; color:#fff; outline:none; margin-bottom:16px; text-shadow:0 0 12px rgba(74,201,240,.6); }
+  .code-input:focus { border-color:#4AC9F0; box-shadow:0 0 20px rgba(74,201,240,.4); }
+  .btn-back { background:transparent; border:2px solid rgba(255,255,255,.2); border-radius:14px; padding:11px 22px; color:#B8C5DA; font-size:14px; font-weight:800; font-family:inherit; letter-spacing:1px; margin-top:12px; touch-action:manipulation; }
+  .btn-back:active { background:rgba(255,255,255,.1); }
+  .status-msg { font-size:12px; color:#FFD32A; margin-top:12px; min-height:16px; font-weight:700; letter-spacing:.5px; text-align:center; }
+
+  #leaderboard { justify-content:flex-start; padding-top: max(20px, env(safe-area-inset-top)); }
+  .lb-header { width:100%; max-width:380px; display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; flex-shrink:0; }
+  .lb-header h2 { margin:0; font-size:22px; }
+  .lb-list { width:100%; max-width:380px; flex:1; display:flex; flex-direction:column; gap:8px; overflow-y:auto; padding-bottom:12px; }
+  .lb-row { display:flex; align-items:center; gap:12px; padding:12px 16px; background:rgba(255,255,255,.06); border-radius:14px; border:1px solid rgba(255,255,255,.06); }
+  .lb-row.top1 { background:linear-gradient(90deg, rgba(255,215,42,.25), rgba(255,215,42,.08)); border-color:rgba(255,215,42,.5); box-shadow:0 0 20px rgba(255,215,42,.3); }
+  .lb-row.top2 { background:linear-gradient(90deg, rgba(192,192,208,.2), rgba(192,192,208,.05)); border-color:rgba(192,192,208,.35); }
+  .lb-row.top3 { background:linear-gradient(90deg, rgba(205,127,50,.2), rgba(205,127,50,.05)); border-color:rgba(205,127,50,.4); }
+  .lb-row.me { box-shadow: 0 0 0 2px #4AC9F0, 0 0 16px rgba(74,201,240,.5); }
+  .lb-row .rank { font-family:'Arial Black', sans-serif; font-size:20px; min-width:32px; text-align:center; color:#B8C5DA; }
+  .lb-row.top1 .rank { color:#FFD32A; font-size:24px; }
+  .lb-row.top2 .rank { color:#E0E0EC; font-size:22px; }
+  .lb-row.top3 .rank { color:#CD7F32; font-size:22px; }
+  .lb-row .name { flex:1; font-size:15px; font-weight:800; color:#fff; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .lb-row .score { font-family:'Arial Black', sans-serif; font-size:18px; color:#4AC9F0; }
+  .lb-row.top1 .score { color:#FFD32A; }
+  .lb-empty { text-align:center; color:#8FA5C9; padding:40px 20px; font-size:14px; }
+  .lb-refresh { background:rgba(74,201,240,.15); border:1px solid rgba(74,201,240,.4); color:#6FB8E8; padding:8px 14px; border-radius:10px; font-size:12px; font-weight:800; letter-spacing:1px; touch-action:manipulation; }
+  .lb-refresh:active { background:rgba(74,201,240,.3); }
+
+  #game { position:fixed; inset:0; display:flex; flex-direction:column; align-items:center; background:linear-gradient(180deg, #2E3F5C 0%, #354A6B 100%); padding-top: max(8px, env(safe-area-inset-top)); padding-bottom: max(8px, env(safe-area-inset-bottom)); padding-left: max(8px, env(safe-area-inset-left)); padding-right: max(8px, env(safe-area-inset-right)); overflow:hidden; }
+  .game-header { width:100%; max-width:440px; display:flex; align-items:center; justify-content:space-between; padding:4px 8px; position:relative; flex-shrink:0; height:56px; }
+  .score-col { display:flex; flex-direction:column; gap:1px; z-index:2; }
+  .score-box { display:flex; align-items:center; gap:6px; font-size:20px; font-weight:800; color:#fff; text-shadow:0 2px 0 rgba(0,0,0,.3); }
+  .score-box .crown-icon { font-size:22px; }
+  .best-line { display:flex; align-items:center; gap:4px; font-size:11px; font-weight:800; color:#FFD32A; letter-spacing:.5px; opacity:.95; }
+  .best-line.pulse { animation:bestPulse .6s ease; }
+  @keyframes bestPulse { 0%{ transform:scale(1); } 50%{ transform:scale(1.25); color:#FFF; } 100%{ transform:scale(1); } }
+  .level-box { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); font-size:28px; font-weight:900; color:#fff; text-shadow:0 3px 0 rgba(0,0,0,.2); }
+  .icon-btn { width:44px; height:44px; background:none; border:none; font-size:26px; color:#fff; display:flex; align-items:center; justify-content:center; opacity:.9; touch-action:manipulation; }
+
+  .turn-banner { display:flex; align-items:center; justify-content:center; gap:8px; padding:6px 18px; border-radius:12px; font-size:12px; font-weight:900; letter-spacing:1.5px; text-transform:uppercase; margin-bottom:8px; flex-shrink:0; }
+  .turn-banner.your-turn { background:linear-gradient(180deg, #20C9A5, #10AC84); color:#fff; box-shadow:0 3px 0 rgba(0,0,0,.25), 0 0 20px rgba(32,201,165,.5); }
+  .turn-banner.not-turn { background:rgba(0,0,0,.25); color:#8FA5C9; border:1px solid rgba(255,255,255,.1); }
+
+  .board-wrap { position:relative; padding:6px; background:#2A3A5C; border-radius:12px; box-shadow:0 4px 0 rgba(0,0,0,.3), inset 0 2px 0 rgba(255,255,255,.08); flex-shrink:0; width: min(94vw, 420px, calc(100vh - 420px)); height: min(94vw, 420px, calc(100vh - 420px)); max-width:420px; max-height:420px; }
+  #board { width:100%; height:100%; display:grid; grid-template-columns:repeat(8, 1fr); grid-template-rows:repeat(8, 1fr); gap:3px; background:#2A3A5C; border-radius:8px; overflow:hidden; padding:3px; }
+  .cell { position:relative; background:#3D5178; border-radius:4px; transition:background .1s; box-shadow:inset 0 1px 0 rgba(255,255,255,.06); }
+  .cell.filled { background:#5CD65C; box-shadow: inset 0 -3px 0 rgba(0,0,0,.25), inset 0 3px 0 rgba(255,255,255,.4), 0 1px 3px rgba(0,0,0,.3); }
+  .cell.preview { background:rgba(92,214,92,.5); box-shadow:inset 0 0 0 2px rgba(92,214,92,.95); }
+  .cell.clearing { animation:popOut .28s ease forwards; }
+  @keyframes popOut { 0%{ transform:scale(1); filter:brightness(1); } 50%{ transform:scale(1.15); filter:brightness(2.2); } 100%{ transform:scale(0); opacity:0; } }
+
+  #tray { width:100%; max-width:440px; flex:1 1 auto; display:flex; gap:8px; margin-top:10px; min-height:120px; max-height:160px; padding:0 4px; align-items:stretch; }
+  .slot { flex:1; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,.08); border-radius:16px; touch-action:none; transition:background .15s, transform .1s; padding:4px; min-height:100%; }
+  .slot.ready { background:rgba(255,255,255,.13); }
+  .slot.ready:active { background:rgba(255,255,255,.3); transform:scale(.97); }
+  .slot:not(.ready) { opacity:.35; }
+  .slot.locked { opacity:.5; }
+  .slot.locked.ready { background:rgba(255,255,255,.05); }
+
+  .piece { position:relative; pointer-events:none; }
+  .pblock { position:absolute; background:#5CD65C; border-radius:4px; box-shadow: inset 0 -3px 0 rgba(0,0,0,.25), inset 0 3px 0 rgba(255,255,255,.4), 0 1px 3px rgba(0,0,0,.3); }
+
+  #dragLayer { position:fixed; inset:0; pointer-events:none; z-index:9999; }
+  .drag-piece { position:absolute; left:0; top:0; will-change:transform; filter:drop-shadow(0 12px 20px rgba(0,0,0,.55)); }
+
+  .popup { position:absolute; left:50%; top:50%; font-size:34px; font-weight:900; color:#FFD32A; text-shadow:0 4px 0 rgba(0,0,0,.3), 0 0 20px rgba(255,211,42,.8); pointer-events:none; animation:popupAnim .8s ease forwards; }
+  @keyframes popupAnim { 0%{ opacity:0; transform:translate(-50%,-50%) scale(.5); } 30%{ opacity:1; transform:translate(-50%,-50%) scale(1.1); } 100%{ opacity:0; transform:translate(-50%,-120%) scale(1); } }
+
+  .praise { position:absolute; left:50%; top:35%; transform:translateX(-50%); font-family:'Arial Black', sans-serif; font-size:38px; font-weight:900; letter-spacing:2px; text-transform:uppercase; pointer-events:none; animation:praiseAnim 1.2s ease forwards; z-index:50; text-align:center; white-space:nowrap; }
+  @keyframes praiseAnim { 0%{ opacity:0; transform:translateX(-50%) scale(.3) rotate(-8deg); } 20%{ opacity:1; transform:translateX(-50%) scale(1.15) rotate(2deg); } 35%{ transform:translateX(-50%) scale(1) rotate(-1deg); } 80%{ opacity:1; transform:translateX(-50%) scale(1) rotate(0deg); } 100%{ opacity:0; transform:translateX(-50%) scale(.9) translateY(-30px); } }
+  .praise.good { color:#5CD65C; text-shadow:0 0 20px #5CD65C, 0 4px 0 #2E8B2E; }
+  .praise.cool { color:#4AC9F0; text-shadow:0 0 24px #4AC9F0, 0 4px 0 #1A7A9E; }
+  .praise.verygood { color:#F5CB3B; text-shadow:0 0 28px #F5CB3B, 0 4px 0 #C7A00F; }
+  .praise.impossible { color:#EC3B3B; text-shadow:0 0 32px #EC3B3B, 0 4px 0 #8B1919; }
+  .praise.hard { color:#B44AD9; text-shadow:0 0 36px #B44AD9, 0 4px 0 #6B1E87; }
+
+  .overlay { position:fixed; inset:0; background:rgba(15,20,35,.85); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); display:flex; align-items:center; justify-content:center; z-index:10000; padding:20px; }
+  .overlay-card { width:100%; max-width:320px; background:#354A6B; border:3px solid #1E2A5A; border-radius:24px; padding:24px 20px; text-align:center; box-shadow:0 10px 0 rgba(0,0,0,.3), 0 20px 40px rgba(0,0,0,.5); }
+  .champion-trophy { font-size:44px; margin-bottom:6px; filter:drop-shadow(0 4px 0 rgba(0,0,0,.3)) drop-shadow(0 0 18px rgba(255,211,42,.6)); animation:trophyShine 2s ease-in-out infinite; }
+  @keyframes trophyShine { 0%,100%{ transform:scale(1) rotate(-3deg); } 50%{ transform:scale(1.08) rotate(3deg); } }
+  .overlay-card h2 { font-size:23px; font-weight:900; color:#FF9F43; text-shadow:0 3px 0 rgba(0,0,0,.2); margin-bottom:6px; }
+  .overlay-card p { font-size:12px; color:rgba(255,255,255,.8); margin-bottom:12px; }
+  .ov-score { font-size:13px; color:#FFD32A; margin-bottom:6px; font-weight:700; letter-spacing:1px; }
+  .ov-score strong { display:block; font-size:40px; font-weight:900; color:#fff; text-shadow:0 4px 0 rgba(0,0,0,.2); margin-top:2px; }
+  .ov-best { font-size:11px; color:#B8C5DA; margin-bottom:12px; font-weight:700; letter-spacing:1px; }
+  .ov-best .val { color:#FFD32A; font-weight:900; }
+
+  .auto-save-status { font-size:11px; font-weight:800; letter-spacing:.5px; min-height:16px; margin-bottom:10px; padding:8px 10px; border-radius:8px; background:rgba(74,201,240,.1); color:#6FB8E8; transition:all .2s; line-height:1.4; word-break:break-word; }
+  .auto-save-status.saving { color:#FFD32A; background:rgba(255,211,42,.1); }
+  .auto-save-status.ok { color:#5CD65C; background:rgba(92,214,92,.12); }
+  .auto-save-status.err { color:#EC3B3B; background:rgba(236,59,59,.12); }
+  .auto-save-status .detail { display:block; font-size:9px; font-weight:600; opacity:.75; margin-top:3px; }
+
+  .btn-retry { width:100%; padding:14px; border:none; border-radius:14px; font-size:16px; font-weight:800; font-family:inherit; color:#fff; background:linear-gradient(180deg, #20C9A5, #10AC84); box-shadow: inset 0 2px 0 rgba(255,255,255,.3), inset 0 -4px 0 rgba(0,0,0,.18), 0 5px 0 rgba(0,0,0,.25); touch-action:manipulation; margin-bottom:8px; }
+  .btn-retry:active { transform:translateY(4px); box-shadow: inset 0 2px 0 rgba(255,255,255,.3), inset 0 -4px 0 rgba(0,0,0,.18), 0 1px 0 rgba(0,0,0,.25); }
+  .btn-exit { width:100%; padding:12px; border:2px solid rgba(255,255,255,.15); border-radius:14px; font-size:13px; font-weight:800; font-family:inherit; color:#B8C5DA; background:transparent; touch-action:manipulation; }
+  .btn-exit:active { background:rgba(255,255,255,.08); }
+
+  .btn-retry-small { width:100%; padding:9px; border:2px solid rgba(74,201,240,.5); border-radius:10px; font-size:12px; font-weight:800; font-family:inherit; color:#4AC9F0; background:rgba(74,201,240,.1); touch-action:manipulation; margin-bottom:8px; }
+  .btn-retry-small:active { background:rgba(74,201,240,.25); }
+  .btn-retry-small:disabled { opacity:.4; }
+
+  .room-badge { position:absolute; top:calc(env(safe-area-inset-top) + 6px); right:12px; background:rgba(74,201,240,.15); border:1px solid rgba(74,201,240,.4); padding:4px 10px; border-radius:8px; font-size:10px; font-weight:800; letter-spacing:1.5px; color:#6FB8E8; z-index:5; }
+
+  @media (max-height: 700px) {
+    .board-wrap { width:min(90vw, 380px, calc(100vh - 380px)); height:min(90vw, 380px, calc(100vh - 380px)); }
+    #tray { min-height:100px; max-height:130px; margin-top:8px; }
+  }
+  @media (max-height: 600px) {
+    .board-wrap { width:min(88vw, 340px, calc(100vh - 340px)); height:min(88vw, 340px, calc(100vh - 340px)); }
+    #tray { min-height:85px; max-height:110px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="lobby">
+  <div class="logo-container">
+    <div class="logo-block">
+      <span class="l-b">B</span><span class="l-l">L</span>
+      <span class="l-o-wrap"><span class="crown">👑</span><span class="l-o">O</span></span>
+      <span class="l-c">C</span><span class="l-k">K</span>
+    </div>
+    <div class="logo-blast">BLAST</div>
+    <div class="logo-sub">Adventure Master</div>
+  </div>
+
+  <div class="name-form" id="nameForm">
+    <div class="label">👤 MASUKKAN NAMAMU</div>
+    <input type="text" id="lobbyNameInput" placeholder="Nama kamu..." maxlength="12" autocomplete="off">
+    <button onclick="saveLobbyName()">SIMPAN NAMA</button>
+  </div>
+
+  <div class="player-box hidden" id="playerBox">
+    <div class="avatar">🎮</div>
+    <div class="info">
+      <div class="lbl">PEMAIN</div>
+      <div class="nm" id="playerNameDisplay">Pemain</div>
+    </div>
+    <button class="edit-btn" onclick="editLobbyName()">UBAH</button>
+  </div>
+
+  <div class="lobby-best"><span>🏆</span><span>BEST</span><span class="val" id="lobbyBest">0</span></div>
+
+  <button class="menu-btn btn-adventure" onclick="startSolo()"><i>📍</i> Adventure</button>
+  <button class="menu-btn btn-classic" onclick="startSolo()"><i>∞</i> Classic</button>
+  <button class="menu-btn btn-multi" onclick="showScreen('multiMenu')"><i>👥</i> Multiplayer</button>
+  <button class="menu-btn btn-rank" onclick="showLeaderboard()"><i>🏆</i> Peringkat Online</button>
+</div>
+
+<div id="leaderboard" class="screen hidden">
+  <div class="lb-header">
+    <h2>🏆 PERINGKAT</h2>
+    <button class="lb-refresh" onclick="loadLeaderboard()">↻ REFRESH</button>
+  </div>
+  <div class="lb-list" id="lbList"><div class="lb-empty">Memuat...</div></div>
+  <button class="btn-back" onclick="showScreen('lobby')">← Kembali</button>
+</div>
+
+<div id="multiMenu" class="screen hidden">
+  <h2>MULTIPLAYER</h2>
+  <p>Main berdua di papan yang sama, bergantian menaruh balok!</p>
+  <button class="menu-btn btn-multi" onclick="hostRoom()"><i>🏠</i> Buat Room</button>
+  <button class="menu-btn btn-adventure" onclick="showScreen('joinRoom')"><i>🔗</i> Join Room</button>
+  <button class="btn-back" onclick="showScreen('lobby')">← Kembali</button>
+</div>
+
+<div id="hostWait" class="screen hidden">
+  <h2>ROOM DIBUAT</h2>
+  <p>Kasih kode ini ke temanmu:</p>
+  <div class="room-code-box"><div class="label">KODE ROOM</div><div class="code" id="roomCode">-----</div></div>
+  <div class="spinner"></div>
+  <p style="margin-top:6px;">Menunggu teman join...</p>
+  <div class="status-msg" id="hostStatus"></div>
+  <button class="btn-back" onclick="cancelHost()">Batal</button>
+</div>
+
+<div id="joinRoom" class="screen hidden">
+  <h2>JOIN ROOM</h2>
+  <p>Masukkan kode 5 huruf dari temanmu</p>
+  <input type="text" id="joinCodeInput" class="code-input" placeholder="-----" maxlength="5" autocomplete="off" spellcheck="false">
+  <button class="menu-btn btn-classic" id="joinBtn" onclick="joinRoom()"><i>🔗</i> Hubungkan</button>
+  <div class="status-msg" id="joinStatus"></div>
+  <button class="btn-back" onclick="showScreen('multiMenu')">← Kembali</button>
+</div>
+
+<div id="game" class="hidden">
+  <div class="room-badge hidden" id="roomBadge">ROOM: -----</div>
+  <div class="game-header">
+    <div class="score-col">
+      <div class="score-box"><span>👑</span><span id="score">0</span></div>
+      <div class="best-line" id="bestLine"><span>🏆</span><span id="best">0</span></div>
+    </div>
+    <div class="level-box" id="level">1</div>
+    <button class="icon-btn" onclick="exitGame()">⚙</button>
+  </div>
+  <div class="turn-banner hidden" id="turnBanner">MEMUAT...</div>
+  <div class="board-wrap"><div id="board"></div></div>
+  <div id="tray"><div class="slot"></div><div class="slot"></div><div class="slot"></div></div>
+</div>
+
+<div class="overlay hidden" id="overlay">
+  <div class="overlay-card">
+    <div class="champion-trophy">🏆</div>
+    <h2 id="ovTitle">GAME OVER</h2>
+    <p id="ovMsg">Skor akhir</p>
+    <div class="ov-score"><strong id="finalScore">0</strong></div>
+    <div class="ov-best">🏆 REKOR: <span class="val" id="ovBest">0</span></div>
+
+    <div class="auto-save-status" id="autoSaveStatus">Memuat...</div>
+    <button class="btn-retry-small hidden" id="retrySubmitBtn" onclick="retrySubmit()">↻ COBA KIRIM ULANG</button>
+
+    <button class="btn-retry" onclick="retryGame()">MAIN LAGI</button>
+    <button class="btn-exit" onclick="exitGame()">Keluar ke Lobby</button>
+  </div>
+</div>
+
+<div id="dragLayer"></div>
+
+<script>
+const N = 8;
+const STORAGE_KEY = 'blockblast_best_v1';
+const NAME_KEY = 'blockblast_name_v2';
+const SUBMITTED_KEY = 'blockblast_lastsubmit_v3';
+const PENDING_KEY = 'blockblast_pending_v1';
+
+const PANTRY_ID = 'bd2f8695-db8a-49ed-90f2-a822e2d74394';
+const BASKET_NAME = 'leaderboard';
+const MAX_SCORES = 50;
+const FETCH_TIMEOUT = 10000;
+
+const RAW_SHAPES = [
+  [[0,0]], [[0,0],[0,1]], [[0,0],[1,0]], [[0,0],[0,1],[0,2]], [[0,0],[1,0],[2,0]],
+  [[0,0],[0,1],[1,0],[1,1]], [[0,0],[0,1],[0,2],[0,3]], [[0,0],[1,0],[2,0],[3,0]],
+  [[0,0],[0,1],[0,2],[0,3],[0,4]], [[0,0],[1,0],[2,0],[3,0],[4,0]],
+  [[0,0],[1,0],[1,1]], [[0,1],[1,0],[1,1]], [[0,0],[0,1],[1,0]], [[0,0],[0,1],[1,1]],
+  [[0,0],[0,1],[0,2],[1,1]], [[0,1],[1,0],[1,1],[1,2]], [[0,0],[1,0],[1,1],[2,1]], [[0,1],[1,0],[1,1],[2,0]],
+];
+const WEIGHTS = [2, 4, 4, 3, 3, 3, 2, 2, 1, 1, 3, 3, 3, 3, 2, 2, 2, 2];
+const SHAPE_POOL = [];
+RAW_SHAPES.forEach((s, i) => { for (let k = 0; k < WEIGHTS[i]; k++) SHAPE_POOL.push(i); });
+
+let boardEl, trayEls, dragLayer, scoreEl, levelEl, turnBanner;
+let cellEls = [], grid = [];
+let tray = [null, null, null];
+let drag = null, previewEls = [];
+let score = 0, level = 1;
+let busy = false, gameOver = false;
+let TRAY_CELL = 22;
+let best = 0;
+let currentMode = 'solo';
+let currentTurn = 'host';
+let peer = null, conn = null, myRoomCode = '', isConnected = false;
+let submitInProgress = false;
+let lastSubmitError = '';
+let pendingRetry = false;
+
+/* ============== AUDIO ============== */
+let audioCtx = null;
+function initAudio() { if (audioCtx) return audioCtx; try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { audioCtx = null; } return audioCtx; }
+function resumeAudio() { const ctx = initAudio(); if (ctx && ctx.state === 'suspended') ctx.resume().catch(() => {}); }
+function playTek() {
+  const ctx = initAudio(); if (!ctx) return;
+  const t = ctx.currentTime;
+  const o = ctx.createOscillator(), g = ctx.createGain();
+  o.type = 'square'; o.frequency.setValueAtTime(900, t);
+  o.frequency.exponentialRampToValueAtTime(400, t + 0.055);
+  g.gain.setValueAtTime(0.13, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.06);
+  o.connect(g); g.connect(ctx.destination); o.start(t); o.stop(t + 0.065);
+}
+function playClik() {
+  const ctx = initAudio(); if (!ctx) return;
+  const t = ctx.currentTime;
+  const o = ctx.createOscillator(), g = ctx.createGain();
+  o.type = 'sine'; o.frequency.setValueAtTime(1400, t);
+  o.frequency.exponentialRampToValueAtTime(600, t + 0.09);
+  g.gain.setValueAtTime(0.18, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+  o.connect(g); g.connect(ctx.destination); o.start(t); o.stop(t + 0.11);
+  const bs = ctx.sampleRate * 0.02;
+  const buf = ctx.createBuffer(1, bs, ctx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < bs; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bs, 3);
+  const n = ctx.createBufferSource(), ng = ctx.createGain();
+  n.buffer = buf; ng.gain.value = 0.08;
+  n.connect(ng); ng.connect(ctx.destination); n.start(t);
+}
+function playPraise(lv) {
+  const cap = Math.min(lv, 5);
+  const words = ['Good', 'Cool', 'Very good', 'Impossible', 'Hard'];
+  const mel = [[660],[660,880],[660,880,1100],[660,880,1100,1320],[520,660,880,1100,1320]];
+  const word = words[cap - 1], melody = mel[cap - 1];
+  const ctx = initAudio();
+  if (ctx) {
+    const now = ctx.currentTime;
+    melody.forEach((f, i) => {
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = 'triangle'; o.frequency.value = f;
+      const t = now + i * 0.09;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.16, t + 0.012);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
+      o.connect(g); g.connect(ctx.destination); o.start(t); o.stop(t + 0.22);
+    });
+  }
+  if ('speechSynthesis' in window) {
+    try {
+      const u = new SpeechSynthesisUtterance(word);
+      u.rate = 1.15; u.pitch = 1.25; u.volume = 0.9; u.lang = 'en-US';
+      window.speechSynthesis.cancel(); window.speechSynthesis.speak(u);
+    } catch (e) {}
+  }
+  showPraiseText(word, cap);
+}
+function showPraiseText(word, lv) {
+  const wrap = document.querySelector('.board-wrap'); if (!wrap) return;
+  const cls = ['good', 'cool', 'verygood', 'impossible', 'hard'];
+  const el = document.createElement('div');
+  el.className = 'praise ' + cls[lv - 1];
+  el.textContent = word.toUpperCase();
+  wrap.appendChild(el);
+  setTimeout(() => el.remove(), 1250);
+}
+
+/* ============== BEST SCORE ============== */
+function loadBest() {
+  try { const v = parseInt(localStorage.getItem(STORAGE_KEY)); best = isNaN(v) ? 0 : v; } catch (e) { best = 0; }
+  updateBestDisplay();
+}
+function saveBest() { try { localStorage.setItem(STORAGE_KEY, best); } catch (e) {} }
+function updateBestDisplay() {
+  const a = document.getElementById('best'); if (a) a.textContent = best;
+  const b = document.getElementById('lobbyBest'); if (b) b.textContent = best;
+  const c = document.getElementById('ovBest'); if (c) c.textContent = best;
+}
+function checkNewBest() {
+  if (score > best) {
+    best = score; updateBestDisplay(); saveBest();
+    const line = document.getElementById('bestLine');
+    if (line) { line.classList.remove('pulse'); void line.offsetWidth; line.classList.add('pulse'); }
+  }
+}
+
+/* ============== NAME ============== */
+function getSavedName() { try { return (localStorage.getItem(NAME_KEY) || '').trim(); } catch (e) { return ''; } }
+function saveName(n) { try { localStorage.setItem(NAME_KEY, (n || '').trim()); } catch (e) {} }
+function refreshLobbyNameUI() {
+  const name = getSavedName();
+  const form = document.getElementById('nameForm');
+  const box = document.getElementById('playerBox');
+  const display = document.getElementById('playerNameDisplay');
+  if (name) { form.classList.add('hidden'); box.classList.remove('hidden'); display.textContent = name; }
+  else { form.classList.remove('hidden'); box.classList.add('hidden'); }
+}
+function saveLobbyName() {
+  const input = document.getElementById('lobbyNameInput');
+  const name = (input.value || '').trim();
+  if (!name) { input.focus(); return; }
+  saveName(name); refreshLobbyNameUI();
+}
+function editLobbyName() {
+  const name = getSavedName();
+  document.getElementById('nameForm').classList.remove('hidden');
+  document.getElementById('playerBox').classList.add('hidden');
+  const input = document.getElementById('lobbyNameInput');
+  input.value = name; input.focus();
+}
+
+/* ============== FETCH DENGAN TIMEOUT ============== */
+function fetchWithTimeout(url, opts = {}) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('Timeout — server tidak merespons dalam ' + (FETCH_TIMEOUT/1000) + 's')), FETCH_TIMEOUT);
+    fetch(url, opts).then(r => { clearTimeout(timer); resolve(r); })
+      .catch(e => { clearTimeout(timer); reject(e); });
+  });
+}
+
+/* ============== LEADERBOARD ============== */
+async function fetchLeaderboard() {
+  try {
+    const url = 'https://getpantry.cloud/apiv1/pantry/' + PANTRY_ID + '/basket/' + BASKET_NAME;
+    const res = await fetchWithTimeout(url);
+    if (res.status === 400 || res.status === 404) {
+      // Basket belum ada → coba buat
+      try {
+        const createRes = await fetchWithTimeout('https://getpantry.cloud/apiv1/pantry/' + PANTRY_ID + '/basket', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: BASKET_NAME, description: 'Scores' })
+        });
+        if (createRes.ok || createRes.status === 400) return { scores: [] };
+      } catch (e) {}
+      return { scores: [] };
+    }
+    if (!res.ok) return { scores: [], error: 'Server error ' + res.status };
+    const data = await res.json();
+    return { scores: Array.isArray(data.scores) ? data.scores : [] };
+  } catch (e) {
+    return { scores: [], error: e.message || 'Koneksi gagal' };
+  }
+}
+
+async function submitToLeaderboard(name, scoreValue) {
+  try {
+    const { scores, error } = await fetchLeaderboard();
+    if (error && !error.includes('error')) return { ok: false, error };
+    const cleanName = (name || 'Anonim').substring(0, 12).trim() || 'Anonim';
+    const list = Array.isArray(scores) ? scores.slice() : [];
+    list.push({ name: cleanName, score: scoreValue, ts: Date.now() });
+    list.sort((a, b) => b.score - a.score);
+    const trimmed = list.slice(0, MAX_SCORES);
+
+    const url = 'https://getpantry.cloud/apiv1/pantry/' + PANTRY_ID + '/basket/' + BASKET_NAME;
+    const res = await fetchWithTimeout(url, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ scores: trimmed })
+    });
+    if (!res.ok) {
+      const txt = await res.text().catch(() => '');
+      return { ok: false, error: 'HTTP ' + res.status + (txt ? ' — ' + txt.substring(0, 60) : '') };
+    }
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e.message || 'Koneksi gagal' };
+  }
+}
+
+/* ============== AUTO SUBMIT ============== */
+function getLastSubmitted() { try { return parseInt(localStorage.getItem(SUBMITTED_KEY) || '0'); } catch (e) { return 0; } }
+function setLastSubmitted(v) { try { localStorage.setItem(SUBMITTED_KEY, String(v)); } catch (e) {} }
+function savePending(name, val) { try { localStorage.setItem(PENDING_KEY, JSON.stringify({ name, score: val, ts: Date.now() })); } catch (e) {} }
+function getPending() { try { return JSON.parse(localStorage.getItem(PENDING_KEY) || 'null'); } catch (e) { return null; } }
+function clearPending() { try { localStorage.removeItem(PENDING_KEY); } catch (e) {} }
+
+function updateAutoSaveUI(state, msg, detail) {
+  const el = document.getElementById('autoSaveStatus');
+  const btn = document.getElementById('retrySubmitBtn');
+  if (!el) return;
+  el.classList.remove('saving', 'ok', 'err');
+  if (state) el.classList.add(state);
+  el.innerHTML = msg + (detail ? '<span class="detail">' + detail + '</span>' : '');
+  if (btn) btn.classList.toggle('hidden', state !== 'err');
+}
+
+async function autoSubmitIfNeeded(showUI = true) {
+  if (currentMode !== 'solo') return;
+  if (score <= 0) return;
+  if (submitInProgress) return;
+
+  const lastSubmitted = getLastSubmitted();
+  if (score <= lastSubmitted) {
+    if (showUI) updateAutoSaveUI('ok', '✅ Sudah tersimpan di peringkat');
+    return;
+  }
+
+  const name = getSavedName() || 'Anonim';
+  const capturedScore = score;
+  submitInProgress = true;
+  pendingRetry = false;
+
+  if (showUI) updateAutoSaveUI('saving', '⏳ Menyimpan ke peringkat...');
+
+  try {
+    const res = await submitToLeaderboard(name, capturedScore);
+    submitInProgress = false;
+    if (res.ok) {
+      setLastSubmitted(capturedScore);
+      clearPending();
+      if (showUI) updateAutoSaveUI('ok', '✅ Tersimpan di peringkat otomatis');
+    } else {
+      lastSubmitError = res.error || 'Gagal';
+      pendingRetry = true;
+      savePending(name, capturedScore);
+      if (showUI) updateAutoSaveUI('err', '⚠️ Gagal kirim ke server', lastSubmitError);
+    }
+  } catch (e) {
+    submitInProgress = false;
+    lastSubmitError = e.message || 'Error';
+    pendingRetry = true;
+    savePending(name, capturedScore);
+    if (showUI) updateAutoSaveUI('err', '⚠️ Gagal kirim ke server', lastSubmitError);
+  }
+}
+
+async function retrySubmit() {
+  if (submitInProgress) return;
+  const name = getSavedName() || 'Anonim';
+  const capturedScore = score;
+  submitInProgress = true;
+  updateAutoSaveUI('saving', '⏳ Mencoba ulang...');
+
+  const res = await submitToLeaderboard(name, capturedScore);
+  submitInProgress = false;
+  if (res.ok) {
+    setLastSubmitted(capturedScore);
+    clearPending();
+    updateAutoSaveUI('ok', '✅ Berhasil tersimpan di peringkat');
+  } else {
+    lastSubmitError = res.error || 'Gagal';
+    updateAutoSaveUI('err', '⚠️ Masih gagal', lastSubmitError);
+  }
+}
+
+async function flushPendingScore() {
+  const p = getPending();
+  if (!p) return;
+  const res = await submitToLeaderboard(p.name, p.score);
+  if (res.ok) {
+    setLastSubmitted(p.score);
+    clearPending();
+  }
+}
+
+async function showLeaderboard() {
+  showScreen('leaderboard');
+  // Coba flush pending dulu
+  flushPendingScore();
+  await loadLeaderboard();
+}
+
+async function loadLeaderboard() {
+  const list = document.getElementById('lbList');
+  list.innerHTML = '<div class="lb-empty">Memuat...</div>';
+  const { scores, error } = await fetchLeaderboard();
+  if (error) {
+    list.innerHTML = '<div class="lb-empty">⚠️ ' + error + '<br><br><span style="font-size:11px;color:#6FB8E8;">Cek koneksi internet, lalu tekan REFRESH</span></div>';
+    return;
+  }
+  if (!scores.length) {
+    list.innerHTML = '<div class="lb-empty">Belum ada skor.<br>Main dulu & kirim skormu!</div>';
+    return;
+  }
+  scores.sort((a, b) => b.score - a.score);
+  const top = scores.slice(0, 20);
+  const myName = getSavedName();
+  list.innerHTML = '';
+  top.forEach((s, i) => {
+    const row = document.createElement('div');
+    const isMe = myName && s.name === myName;
+    row.className = 'lb-row' + (i === 0 ? ' top1' : i === 1 ? ' top2' : i === 2 ? ' top3' : '') + (isMe ? ' me' : '');
+    const rankText = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '#' + (i + 1);
+    const safeName = String(s.name || 'Anonim').replace(/[<>]/g, '');
+    row.innerHTML = '<div class="rank">' + rankText + '</div>' +
+      '<div class="name">' + safeName + (isMe ? ' <span style="color:#4AC9F0;font-size:11px;">(KAMU)</span>' : '') + '</div>' +
+      '<div class="score">' + (s.score || 0) + '</div>';
+    list.appendChild(row);
+  });
+}
+
+/* ============== SCREENS ============== */
+function showScreen(id) {
+  ['lobby', 'multiMenu', 'hostWait', 'joinRoom', 'game', 'leaderboard'].forEach(sid => {
+    const el = document.getElementById(sid);
+    if (el) el.classList.add('hidden');
+  });
+  const target = document.getElementById(id);
+  if (target) target.classList.remove('hidden');
+}
+
+function startSolo() {
+  initAudio(); resumeAudio();
+  currentMode = 'solo';
+  showScreen('game');
+  document.getElementById('turnBanner').classList.add('hidden');
+  document.getElementById('roomBadge').classList.add('hidden');
+  requestAnimationFrame(() => { buildBoard(); newGame(); });
+}
+
+/* ============== MULTIPLAYER HOST ============== */
+function genCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let s = '';
+  for (let i = 0; i < 5; i++) s += chars[Math.floor(Math.random() * chars.length)];
+  return s;
+}
+function hostRoom() {
+  initAudio(); resumeAudio();
+  currentMode = 'host';
+  showScreen('hostWait');
+  document.getElementById('hostStatus').textContent = 'Menyiapkan room...';
+  myRoomCode = genCode();
+  document.getElementById('roomCode').textContent = myRoomCode;
+  if (peer) { try { peer.destroy(); } catch (e) {} }
+  peer = new Peer('BB' + myRoomCode, { debug: 1 });
+  peer.on('open', () => { document.getElementById('hostStatus').textContent = 'Room siap! Kode: ' + myRoomCode; });
+  peer.on('connection', (c) => {
+    if (conn && conn.open) { c.close(); return; }
+    conn = c;
+    conn.on('open', () => {
+      isConnected = true;
+      document.getElementById('hostStatus').textContent = 'Teman tersambung! Memulai...';
+      showScreen('game');
+      requestAnimationFrame(() => { buildBoard(); newGameMP(); currentTurn = 'host'; updateTurnUI(); broadcastState(); });
+    });
+    conn.on('data', handleHostData);
+    conn.on('close', onPeerDisconnect);
+    conn.on('error', onPeerDisconnect);
+  });
+  peer.on('error', (err) => { document.getElementById('hostStatus').textContent = 'Error: ' + (err.type || err); });
+}
+function cancelHost() {
+  if (peer) { try { peer.destroy(); } catch (e) {} peer = null; }
+  conn = null; isConnected = false;
+  showScreen('multiMenu');
+}
+
+/* ============== MULTIPLAYER GUEST ============== */
+function joinRoom() {
+  initAudio(); resumeAudio();
+  const code = (document.getElementById('joinCodeInput').value || '').toUpperCase().trim();
+  if (code.length !== 5) { document.getElementById('joinStatus').textContent = 'Kode harus 5 huruf!'; return; }
+  currentMode = 'guest';
+  myRoomCode = code;
+  document.getElementById('joinStatus').textContent = 'Menghubungkan...';
+  document.getElementById('joinBtn').disabled = true;
+  if (peer) { try { peer.destroy(); } catch (e) {} }
+  peer = new Peer({ debug: 1 });
+  peer.on('open', () => {
+    conn = peer.connect('BB' + code, { reliable: true });
+    conn.on('open', () => {
+      isConnected = true;
+      document.getElementById('joinStatus').textContent = 'Terhubung! Menunggu host...';
+      document.getElementById('joinBtn').disabled = false;
+      showScreen('game');
+      requestAnimationFrame(() => {
+        buildBoard();
+        turnBanner.classList.remove('hidden');
+        turnBanner.textContent = 'MENUNGGU HOST...';
+        turnBanner.className = 'turn-banner not-turn';
+      });
+    });
+    conn.on('data', handleGuestData);
+    conn.on('close', onPeerDisconnect);
+    conn.on('error', onPeerDisconnect);
+  });
+  peer.on('error', (err) => {
+    document.getElementById('joinStatus').textContent = 'Gagal: ' + (err.type || err);
+    document.getElementById('joinBtn').disabled = false;
+  });
+}
+function onPeerDisconnect() {
+  isConnected = false; conn = null;
+  if (currentMode === 'guest' || currentMode === 'host') { alert('Teman terputus. Kembali ke lobby.'); exitGame(); }
+}
+
+/* ============== PEER MSG ============== */
+function broadcastState() {
+  if (currentMode !== 'host' || !conn || !conn.open) return;
+  conn.send({ type: 'state', grid: grid, tray: tray.map(p => p ? p.shapeIdx : null), score: score, level: level, turn: currentTurn, gameOver: gameOver });
+}
+function handleHostData(data) {
+  if (!data || !data.type) return;
+  if (data.type === 'place') {
+    if (currentTurn !== 'guest') { broadcastState(); return; }
+    if (gameOver || busy) { broadcastState(); return; }
+    const piece = tray[data.idx];
+    if (!piece) { broadcastState(); return; }
+    if (!canPlace(piece, data.row, data.col)) { broadcastState(); return; }
+    applyPlacement(data.idx, piece, data.row, data.col, () => { currentTurn = 'host'; updateTurnUI(); broadcastState(); });
+  }
+}
+function handleGuestData(data) {
+  if (!data || !data.type) return;
+  if (data.type === 'state') applyState(data);
+}
+function applyState(s) {
+  grid = s.grid.map(row => row.slice());
+  tray = s.tray.map(idx => {
+    if (idx === null || idx === undefined) return null;
+    const cells = RAW_SHAPES[idx];
+    const h = Math.max(...cells.map(x => x[0])) + 1;
+    const w = Math.max(...cells.map(x => x[1])) + 1;
+    return { cells, w, h, shapeIdx: idx };
+  });
+  score = s.score; level = s.level; currentTurn = s.turn; gameOver = s.gameOver;
+  updateScore(); renderBoard(); renderTray(); updateTurnUI();
+  if (gameOver) setTimeout(showOverlay, 300);
+}
+function updateTurnUI() {
+  if (currentMode === 'solo') { turnBanner.classList.add('hidden'); trayEls.forEach(el => el.classList.remove('locked')); return; }
+  turnBanner.classList.remove('hidden');
+  const iAmHost = currentMode === 'host';
+  const isMyTurn = (iAmHost && currentTurn === 'host') || (!iAmHost && currentTurn === 'guest');
+  if (isMyTurn) { turnBanner.textContent = '🎯 GILIRANMU'; turnBanner.className = 'turn-banner your-turn'; trayEls.forEach(el => el.classList.remove('locked')); }
+  else { turnBanner.textContent = '⏳ Menunggu lawan...'; turnBanner.className = 'turn-banner not-turn'; trayEls.forEach(el => el.classList.add('locked')); }
+}
+
+/* ============== GAME LOGIC ============== */
+function buildBoard() {
+  boardEl.innerHTML = ''; cellEls = [];
+  for (let r = 0; r < N; r++) {
+    cellEls[r] = [];
+    for (let c = 0; c < N; c++) {
+      const el = document.createElement('div');
+      el.className = 'cell';
+      boardEl.appendChild(el);
+      cellEls[r][c] = el;
+    }
+  }
+}
+function newGame() {
+  grid = Array.from({ length: N }, () => Array(N).fill(0));
+  score = 0; level = 1; gameOver = false; busy = false; drag = null;
+  tray = [randomPiece(), randomPiece(), randomPiece()];
+  hideOverlay();
+  updateScore(); renderBoard(); renderTray();
+}
+function newGameMP() { newGame(); currentTurn = 'host'; }
+function randomPiece() {
+  const idx = SHAPE_POOL[Math.floor(Math.random() * SHAPE_POOL.length)];
+  const cells = RAW_SHAPES[idx];
+  const h = Math.max(...cells.map(x => x[0])) + 1;
+  const w = Math.max(...cells.map(x => x[1])) + 1;
+  return { cells, w, h, shapeIdx: idx };
+}
+function buildPieceEl(piece, cs) {
+  const el = document.createElement('div');
+  el.className = 'piece';
+  el.style.width = piece.w * cs + 'px';
+  el.style.height = piece.h * cs + 'px';
+  piece.cells.forEach(([r, c]) => {
+    const b = document.createElement('div');
+    b.className = 'pblock';
+    b.style.left = (c * cs + 2) + 'px'; b.style.top = (r * cs + 2) + 'px';
+    b.style.width = (cs - 4) + 'px'; b.style.height = (cs - 4) + 'px';
+    el.appendChild(b);
+  });
+  return el;
+}
+function renderBoard() {
+  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+    const v = grid[r][c];
+    cellEls[r][c].className = 'cell' + (v ? ' filled' : '');
+  }
+}
+function renderTray() {
+  const slotW = trayEls[0] ? trayEls[0].getBoundingClientRect().width : 100;
+  const slotH = trayEls[0] ? trayEls[0].getBoundingClientRect().height : 100;
+  TRAY_CELL = Math.max(14, Math.min(Math.round((slotW - 12) / 5.5), Math.round((slotH - 12) / 3.5)));
+  trayEls.forEach((slot, i) => {
+    slot.innerHTML = '';
+    slot.onpointerdown = null;
+    slot.classList.remove('ready');
+    const p = tray[i];
+    if (!p) return;
+    const el = buildPieceEl(p, TRAY_CELL);
+    el.style.pointerEvents = 'none';
+    slot.appendChild(el);
+    slot.classList.add('ready');
+    slot.onpointerdown = (e) => onDragStart(e, i, el, slot);
+  });
+  if (currentMode !== 'solo') updateTurnUI();
+}
+function updateScore() {
+  scoreEl.textContent = score;
+  levelEl.textContent = level;
+  if (currentMode === 'solo') checkNewBest();
+}
+function canPlace(piece, row, col) {
+  if (row < 0 || col < 0) return false;
+  return piece.cells.every(([r, c]) => {
+    const rr = row + r, cc = col + c;
+    return rr < N && cc < N && grid[rr][cc] === 0;
+  });
+}
+function findFullLines() {
+  const rows = [], cols = [];
+  for (let r = 0; r < N; r++) if (grid[r].every(v => v !== 0)) rows.push(r);
+  for (let c = 0; c < N; c++) {
+    let full = true;
+    for (let r = 0; r < N; r++) if (grid[r][c] === 0) { full = false; break; }
+    if (full) cols.push(c);
+  }
+  return { rows, cols };
+}
+function anyPieceFits() {
+  return tray.some(p => {
+    if (!p) return false;
+    for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) if (canPlace(p, r, c)) return true;
+    return false;
+  });
+}
+function refillTray() {
+  let t = 0;
+  do { tray = [randomPiece(), randomPiece(), randomPiece()]; t++; } while (t < 40 && !anyPieceFits());
+}
+
+/* ============== DRAG ============== */
+function onDragStart(e, idx, pieceEl, slotEl) {
+  if (gameOver || busy || drag) return;
+  if (currentMode !== 'solo') {
+    const iAmHost = currentMode === 'host';
+    const isMyTurn = (iAmHost && currentTurn === 'host') || (!iAmHost && currentTurn === 'guest');
+    if (!isMyTurn || !isConnected) return;
+  }
+  const piece = tray[idx];
+  if (!piece) return;
+  e.preventDefault();
+  resumeAudio();
+  playTek();
+  const brect = boardEl.getBoundingClientRect();
+  const cell = brect.width / N;
+  const ghost = buildPieceEl(piece, cell);
+  ghost.classList.add('drag-piece');
+  dragLayer.appendChild(ghost);
+  drag = { idx, piece, ghost, cell, brect, isTouch: true, ghostW: piece.w * cell, ghostH: piece.h * cell, valid: false, row: 0, col: 0, x: 0, y: 0, trayEl: pieceEl, slotEl: slotEl, grabX: (piece.w * cell) / 2, grabY: (piece.h * cell) / 2 };
+  pieceEl.style.opacity = '0.25';
+  moveDrag(e.clientX, e.clientY);
+  window.addEventListener('pointermove', onDragMove, { passive: false });
+  window.addEventListener('pointerup', onDragEnd);
+  window.addEventListener('pointercancel', onDragEnd);
+}
+function onDragMove(e) { if (!drag) return; e.preventDefault(); moveDrag(e.clientX, e.clientY); }
+function moveDrag(cx, cy) { const d = drag; d.x = cx - d.ghostW / 2; d.y = cy - d.ghostH - 70; updatePreview(); }
+function updatePreview() {
+  const d = drag, brect = d.brect;
+  const col = Math.round((d.x - brect.left) / d.cell);
+  const row = Math.round((d.y - brect.top) / d.cell);
+  clearPreview(); d.valid = false;
+  if (canPlace(d.piece, row, col)) {
+    d.valid = true; d.row = row; d.col = col;
+    d.piece.cells.forEach(([r, c]) => { const el = cellEls[row + r][col + c]; el.classList.add('preview'); previewEls.push(el); });
+    d.ghost.style.transform = 'translate(' + (brect.left + col * d.cell) + 'px,' + (brect.top + row * d.cell) + 'px)';
+  } else { d.ghost.style.transform = 'translate(' + d.x + 'px,' + d.y + 'px)'; }
+}
+function clearPreview() { previewEls.forEach(el => el.classList.remove('preview')); previewEls = []; }
+function onDragEnd() {
+  window.removeEventListener('pointermove', onDragMove);
+  window.removeEventListener('pointerup', onDragEnd);
+  window.removeEventListener('pointercancel', onDragEnd);
+  if (!drag) return;
+  const d = drag;
+  clearPreview();
+  d.ghost.remove();
+  if (d.trayEl) d.trayEl.style.opacity = '1';
+  drag = null;
+  if (!d.valid) return;
+  if (currentMode === 'solo') applyPlacement(d.idx, d.piece, d.row, d.col, () => {});
+  else if (currentMode === 'host') applyPlacement(d.idx, d.piece, d.row, d.col, () => { currentTurn = 'guest'; updateTurnUI(); broadcastState(); });
+  else if (currentMode === 'guest') {
+    if (conn && conn.open) {
+      conn.send({ type: 'place', idx: d.idx, row: d.row, col: d.col });
+      trayEls.forEach(el => el.classList.add('locked'));
+      turnBanner.textContent = '⏳ Menunggu konfirmasi...';
+      turnBanner.className = 'turn-banner not-turn';
+    }
+  }
+}
+
+/* ============== PLACEMENT ============== */
+function applyPlacement(idx, piece, row, col, callback) {
+  busy = true;
+  piece.cells.forEach(([r, c]) => { grid[row + r][col + c] = 1; });
+  playClik();
+  score += piece.cells.length;
+  tray[idx] = null;
+  updateScore(); renderBoard(); renderTray();
+  const { rows, cols } = findFullLines();
+  const lines = rows.length + cols.length;
+  if (lines > 0) {
+    rows.forEach(r => { for (let c = 0; c < N; c++) cellEls[r][c].classList.add('clearing'); });
+    cols.forEach(c => { for (let r = 0; r < N; r++) cellEls[r][c].classList.add('clearing'); });
+    const gain = lines * 10 + (lines - 1) * 5;
+    playPraise(lines);
+    setTimeout(() => {
+      rows.forEach(r => { for (let c = 0; c < N; c++) grid[r][c] = 0; });
+      cols.forEach(c => { for (let r = 0; r < N; r++) grid[r][c] = 0; });
+      score += gain; updateScore(); showPopup('+' + gain); renderBoard();
+      finishTurn(callback);
+    }, 280);
+  } else { finishTurn(callback); }
+}
+function finishTurn(callback) {
+  if (tray.every(t => t === null)) { refillTray(); level++; levelEl.textContent = level; }
+  renderTray();
+  busy = false;
+  if (callback) callback();
+  if (!anyPieceFits()) {
+    gameOver = true;
+    setTimeout(showOverlay, 350);
+    if (currentMode === 'host') broadcastState();
+  }
+}
+
+/* ============== OVERLAY ============== */
+function showPopup(text) {
+  const wrap = document.querySelector('.board-wrap');
+  const el = document.createElement('div');
+  el.className = 'popup';
+  el.textContent = text;
+  wrap.appendChild(el);
+  setTimeout(() => el.remove(), 800);
+}
+function showOverlay() {
+  document.getElementById('finalScore').textContent = score;
+  document.getElementById('ovBest').textContent = best;
+  const title = document.getElementById('ovTitle');
+  const msg = document.getElementById('ovMsg');
+
+  if (currentMode !== 'solo') {
+    title.textContent = 'GAME OVER';
+    msg.textContent = 'Papan sudah penuh!';
+    document.getElementById('autoSaveStatus').style.display = 'none';
+    document.getElementById('retrySubmitBtn').classList.add('hidden');
+  } else {
+    document.getElementById('autoSaveStatus').style.display = 'block';
+    if (score > 0 && score >= best && best > 0) {
+      title.textContent = 'REKOR BARU!';
+      msg.textContent = 'Hebat! Kamu memecahkan rekor 🎉';
+    } else {
+      title.textContent = 'GAME OVER';
+      msg.textContent = 'Skor kamu';
+    }
+    autoSubmitIfNeeded(true);
+  }
+  document.getElementById('overlay').classList.remove('hidden');
+}
+function hideOverlay() { document.getElementById('overlay').classList.add('hidden'); }
+function retryGame() {
+  hideOverlay();
+  resumeAudio();
+  if (currentMode === 'solo') newGame();
+  else if (currentMode === 'host') { newGameMP(); updateTurnUI(); broadcastState(); }
+  else { newGame(); turnBanner.textContent = 'MENUNGGU HOST...'; turnBanner.className = 'turn-banner not-turn'; trayEls.forEach(el => el.classList.add('locked')); }
+}
+function exitGame() {
+  if (currentMode === 'solo' && score > 0) autoSubmitIfNeeded(false);
+  hideOverlay();
+  if (peer) { try { peer.destroy(); } catch (e) {} peer = null; }
+  conn = null; isConnected = false;
+  currentMode = 'solo';
+  showScreen('lobby');
+  refreshLobbyNameUI();
+  updateBestDisplay();
+  // Coba flush pending juga
+  flushPendingScore();
+}
+
+/* ============== START ============== */
+window.addEventListener('DOMContentLoaded', () => {
+  boardEl = document.getElementById('board');
+  trayEls = Array.from(document.querySelectorAll('.slot'));
+  dragLayer = document.getElementById('dragLayer');
+  scoreEl = document.getElementById('score');
+  levelEl = document.getElementById('level');
+  turnBanner = document.getElementById('turnBanner');
+  loadBest();
+  refreshLobbyNameUI();
+
+  const lobbyInput = document.getElementById('lobbyNameInput');
+  if (lobbyInput) lobbyInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') saveLobbyName(); });
+  const codeInput = document.getElementById('joinCodeInput');
+  if (codeInput) {
+    codeInput.addEventListener('input', (e) => { e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''); });
+    codeInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') joinRoom(); });
+  }
+  window.addEventListener('resize', () => { if (!drag) renderTray(); });
+  window.addEventListener('orientationchange', () => { setTimeout(() => { if (!drag) renderTray(); }, 200); });
+  document.addEventListener('pointerdown', resumeAudio, { once: false });
+});
+</script>
+</body>
+</html>
